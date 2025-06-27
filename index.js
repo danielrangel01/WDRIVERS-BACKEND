@@ -45,6 +45,14 @@ const whitelist = [
   "http://192.168.1.11:3000",
   "http://192.168.0.37:3000",
   "http://192.168.1.15:3000",
+  "https://wdrivers.co",
+  "http://wdrivers.co",
+  "https://cozy-elf-edd2b5.netlify.app",
+
+
+
+
+  
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -136,7 +144,7 @@ mongoose
     }  */
 
     // Crear deudas a todos los conductores con vehículo asignado
-    async function crearDeudasMasivas({ monto = 70000, fecha = new Date() }) {
+/*     async function crearDeudasMasivas({ monto = 70000, fecha = new Date() }) {
       const fechaSoloDia = new Date(
         fecha.getFullYear(),
         fecha.getMonth(),
@@ -186,10 +194,10 @@ mongoose
           `🔔 ${creadas} deudas creadas para el día ${fechaSoloDia.toLocaleDateString()}`
         );
       }
-    }
+    } */
 
     //Llama a la función así (descomenta para ejecutar una vez)
-  crearDeudasMasivas({ monto: 70000, fecha: new Date("2025-06-26") }); // Cambia fecha si quieres simular otro día
+  // crearDeudasMasivas({ monto: 70000, fecha: new Date("2025-06-26") }); // Cambia fecha si quieres simular otro día
 
     app.listen(process.env.PORT || 4000, "0.0.0.0", () => {
       console.log(`🚀 Servidor en puerto ${process.env.PORT || 4000}`);
