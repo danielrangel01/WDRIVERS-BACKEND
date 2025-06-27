@@ -23,13 +23,13 @@ import Deuda from "./models/Deuda.js";
 dotenv.config();
 const app = express();
 
-cron.schedule("0 2 * * *", () => {
+/* cron.schedule("0 2 * * *", () => {
   console.log("🕒 Ejecutando cronjob diario para generar deudas...");
   exec("node cron/generarDeudas.js", (err, stdout, stderr) => {
     if (err) console.error("❌ Error:", err);
     else console.log(stdout);
   });
-});
+}); */
 
 // Middleware para el webhook de Wompi (raw body)
 app.use("/api/pagos/webhook", express.raw({ type: "application/json" }));
