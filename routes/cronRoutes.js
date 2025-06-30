@@ -4,8 +4,6 @@ import User from "../models/User.js";
 import Deuda from "../models/Deuda.js";
 import { registrarActividad } from "../utils/logActivity.js";
 
-//
-
 const router = express.Router();
 
 router.post("/cron-generar-deudas", async (req, res) => {

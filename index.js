@@ -24,14 +24,6 @@ import cronRoutes from "./routes/cronRoutes.js";
 dotenv.config();
 const app = express();
 
-/* cron.schedule("0 2 * * *", () => {
-  console.log("🕒 Ejecutando cronjob diario para generar deudas...");
-  exec("node cron/generarDeudas.js", (err, stdout, stderr) => {
-    if (err) console.error("❌ Error:", err);
-    else console.log(stdout);
-  });
-}); */
-
 // Middleware para el webhook de Wompi (raw body)
 app.use("/api/pagos/webhook", express.raw({ type: "application/json" }));
 
@@ -48,6 +40,7 @@ const whitelist = [
   "http://192.168.1.15:3000",
   "https://wdrivers.co",
   "http://wdrivers.co",
+  "hhttps://console.cron-job",
   "https://cozy-elf-edd2b5.netlify.app",
 ];
 const corsOptions = {
