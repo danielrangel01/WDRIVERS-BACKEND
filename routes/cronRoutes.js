@@ -1,9 +1,10 @@
 // backend/routes/cronRoutes.js
 import express from "express";
 import User from "../models/User.js";
-import Vehicle from "../models/Vehicle.js";
 import Deuda from "../models/Deuda.js";
 import { registrarActividad } from "../utils/logActivity.js";
+
+//
 
 const router = express.Router();
 
