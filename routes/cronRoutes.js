@@ -42,13 +42,14 @@ router.post("/cron-generar-deudas", async (req, res) => {
         estado: "creada",
       });
 
+      creadas++;
+
       await registrarActividad({
         usuarioId: user._id,
         tipo: "deuda",
         descripcion: `El sistema generó deuda de $${monto} para ${user.username} (${vehiculo.placa})`,
       });
 
-      creadas++;
     }
   }
   res.json({ message: `Deudas generadas: ${creadas}` });

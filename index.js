@@ -67,7 +67,7 @@ app.use("/api/vehiculos", vehicleRoutes);
 app.use("/api/conductor", conductorRoutes);
 app.use("/api/solicitudes", solicitudesRoutes);
 app.use("/uploads", express.static(path.resolve("uploads")));
-app.use("/api/admin", cronRoutes);
+app.use("/api", cronRoutes);
 
 async function crearAdminInicial() {
   const username = "admin";
