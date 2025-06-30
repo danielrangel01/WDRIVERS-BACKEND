@@ -19,6 +19,7 @@ import vehicleRoutes from "./routes/vehicleRoutes.js";
 import conductorRoutes from "./routes/conductorRoutes.js";
 import solicitudesRoutes from "./routes/solicitudesRoutes.js";
 import Deuda from "./models/Deuda.js";
+import cronRoutes from "./routes/cronRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -48,11 +49,6 @@ const whitelist = [
   "https://wdrivers.co",
   "http://wdrivers.co",
   "https://cozy-elf-edd2b5.netlify.app",
-
-
-
-
-  
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -78,6 +74,7 @@ app.use("/api/vehiculos", vehicleRoutes);
 app.use("/api/conductor", conductorRoutes);
 app.use("/api/solicitudes", solicitudesRoutes);
 app.use("/uploads", express.static(path.resolve("uploads")));
+app.use("/api/admin", cronRoutes);
 
 async function crearAdminInicial() {
   const username = "admin";
@@ -144,7 +141,7 @@ mongoose
     }  */
 
     // Crear deudas a todos los conductores con vehículo asignado
-/*     async function crearDeudasMasivas({ monto = 70000, fecha = new Date() }) {
+    /*     async function crearDeudasMasivas({ monto = 70000, fecha = new Date() }) {
       const fechaSoloDia = new Date(
         fecha.getFullYear(),
         fecha.getMonth(),
@@ -197,7 +194,7 @@ mongoose
     } */
 
     //Llama a la función así (descomenta para ejecutar una vez)
-  // crearDeudasMasivas({ monto: 70000, fecha: new Date("2025-06-26") }); // Cambia fecha si quieres simular otro día
+    // crearDeudasMasivas({ monto: 70000, fecha: new Date("2025-06-26") }); // Cambia fecha si quieres simular otro día
 
     app.listen(process.env.PORT || 4000, "0.0.0.0", () => {
       console.log(`🚀 Servidor en puerto ${process.env.PORT || 4000}`);
