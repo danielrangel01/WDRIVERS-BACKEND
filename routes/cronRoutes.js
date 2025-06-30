@@ -1,3 +1,12 @@
+// backend/routes/cronRoutes.js
+import express from "express";
+import User from "../models/User.js";
+import Deuda from "../models/Deuda.js";
+import Pago from "../models/Pago.js";
+import { registrarActividad } from "../utils/logActivity.js";
+
+const router = express.Router();
+
 router.post("/cron-generar-deudas", async (req, res) => {
   const cronSecret = req.headers["x-cron-secret"];
   if (cronSecret !== process.env.CRON_SECRET) {
@@ -14,9 +23,10 @@ router.post("/cron-generar-deudas", async (req, res) => {
   for (const user of conductores) {
     const vehiculo = user.assignedVehicle;
     if (!vehiculo) continue;
+
     const monto = vehiculo.tarifaDiaria || 70000;
 
-    // 1. ¿Ya existe un pago de este conductor para este vehículo hoy?
+    // ¿Ya existe un pago hoy?
     const yaPago = await Pago.findOne({
       usuario: user._id,
       vehiculo: vehiculo._id,
@@ -24,12 +34,12 @@ router.post("/cron-generar-deudas", async (req, res) => {
     });
 
     if (yaPago) {
-      // Ya pagó, NO crear deuda
+      // Ya pagó hoy, no crear deuda
       console.log(`✔️ El conductor ${user.username} (${vehiculo.placa}) ya pagó el día ${inicioDia.toLocaleDateString()}`);
       continue;
     }
 
-    // 2. ¿Ya existe deuda creada hoy? (opcional: puedes omitir si seguro NO habrá duplicados)
+    // ¿Ya existe una deuda hoy?
     const yaExisteDeuda = await Deuda.findOne({
       usuario: user._id,
       vehiculo: vehiculo._id,
@@ -41,7 +51,7 @@ router.post("/cron-generar-deudas", async (req, res) => {
       continue;
     }
 
-    // 3. Crear deuda
+    // Crear deuda
     await Deuda.create({
       usuario: user._id,
       vehiculo: vehiculo._id,
@@ -51,9 +61,18 @@ router.post("/cron-generar-deudas", async (req, res) => {
       metodo: "manual",
       estado: "creada",
     });
+
+    await registrarActividad({
+      usuarioId: user._id,
+      tipo: "deuda",
+      descripcion: `El sistema generó deuda de $${monto} para ${user.username} (${vehiculo.placa})`,
+    });
+
     creadas++;
     console.log(`✅ Deuda creada para ${user.username} (${vehiculo.placa})`);
   }
 
   res.json({ message: `Deudas generadas: ${creadas}` });
 });
+
+export default router;
