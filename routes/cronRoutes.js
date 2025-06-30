@@ -14,45 +14,40 @@ router.post("/cron-generar-deudas", async (req, res) => {
 
   const conductores = await User.find({ role: "conductor" }).populate("assignedVehicle");
   const fechaHoy = new Date();
-  const fechaSoloDia = new Date(fechaHoy.getFullYear(), fechaHoy.getMonth(), fechaHoy.getDate());
+  const inicioDia = new Date(fechaHoy.getFullYear(), fechaHoy.getMonth(), fechaHoy.getDate());
+  const finDia = new Date(fechaHoy.getFullYear(), fechaHoy.getMonth(), fechaHoy.getDate(), 23, 59, 59, 999);
 
   let creadas = 0;
 
   for (const user of conductores) {
     const vehiculo = user.assignedVehicle;
     if (!vehiculo) continue;
-
-    // Usa la tarifa diaria del vehículo asignado
-    const monto = vehiculo.tarifaDiaria || 70000; // fallback si no hay tarifa
+    const monto = vehiculo.tarifaDiaria || 70000;
 
     const yaExiste = await Deuda.findOne({
       usuario: user._id,
       vehiculo: vehiculo._id,
-      fecha: fechaSoloDia,
+      fecha: { $gte: inicioDia, $lte: finDia }, // <-- esto es clave!
     });
 
     if (!yaExiste) {
       await Deuda.create({
         usuario: user._id,
         vehiculo: vehiculo._id,
-        fecha: fechaSoloDia,
+        fecha: inicioDia, // o fechaSoloDia
         monto,
         pagada: false,
         metodo: "manual",
         estado: "creada",
       });
-
       creadas++;
-
-      await registrarActividad({
-        usuarioId: user._id,
-        tipo: "deuda",
-        descripcion: `El sistema generó deuda de $${monto} para ${user.username} (${vehiculo.placa})`,
-      });
-
+      console.log(`✅ Deuda creada para ${user.username} (${vehiculo.placa})`);
+    } else {
+      console.log(`ℹ️ Ya existe deuda para ${user.username} el ${inicioDia.toLocaleDateString()}`);
     }
   }
   res.json({ message: `Deudas generadas: ${creadas}` });
 });
+
 
 export default router;
