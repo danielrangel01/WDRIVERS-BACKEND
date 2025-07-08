@@ -10,4 +10,15 @@ router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
   res.json(logs);
 });
 
+// Obtener cantidad de actividades no leídas
+router.get("/notificaciones/no-leidas", authMiddleware, requireRole("admin"), async (req, res) => {
+  const count = await Actividad.countDocuments({ leida: false });
+  res.json({ noLeidas: count });
+});
+
+router.post("/marcar-leidas", authMiddleware, requireRole("admin"), async (req, res) => {
+  await Actividad.updateMany({ leida: false }, { leida: true });
+  res.json({ ok: true });
+});
+
 export default router;

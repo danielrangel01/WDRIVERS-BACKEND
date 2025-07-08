@@ -24,6 +24,7 @@ const activitySchema = new mongoose.Schema({
   },
   descripcion: { type: String, required: true },
   fecha: { type: Date, default: Date.now },
+  leida: { type: Boolean, default: false }, // nuevo campo
 });
 
 export default mongoose.model("ActivityLog", activitySchema);
