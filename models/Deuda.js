@@ -14,7 +14,9 @@ const deudaSchema = new mongoose.Schema({
   estado:     { type: String, enum: ['creada', 'pendiente', 'aprobada'], default: 'creada' }, // Para flujo de aprobación manual o PSE
   fechaPago:  { type: Date }, // Cuándo se pagó la deuda (cuando se aprueba)
 
-  pagoId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Pago' } // Relación al pago registrado (si aplica)
+  pagoId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Pago' },// Relación al pago registrado (si aplica)
+  motivoEliminacion: { type: String },
+  eliminada: { type: Boolean, default: false }
 },
 {
   timestamps: true

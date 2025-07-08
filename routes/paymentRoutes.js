@@ -10,7 +10,6 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import dotenv from "dotenv";
-import { log } from "console";
 dotenv.config();
 
 const router = express.Router();
@@ -30,8 +29,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.post("/", authMiddleware, requireRole("conductor"), async (req, res) => {
-  console.log(req);
-
   const userId = req.user.id;
   const user = await User.findById(userId).populate("assignedVehicle");
 
@@ -121,7 +118,7 @@ router.get("/mis-pagos", authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/pagos/deudas
+// GET /api/pagos/deudas (conductor)
 router.get(
   "/deudas",
   authMiddleware,
@@ -130,9 +127,81 @@ router.get(
     const deudas = await Deuda.find({
       usuario: req.userId,
       pagada: false,
-      estado: { $in: ["pendiente", "creada"] }
+      estado: { $in: ["pendiente", "creada"] },
+      eliminada: { $ne: true }, 
     }).populate("vehiculo");
     res.json(deudas);
+  }
+);
+
+// GET /api/pagos/deudas-admin (admin) — todas, NO eliminadas
+router.get(
+  "/deudas-admin",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    const deudas = await Deuda.find({
+      eliminada: { $ne: true }
+    })
+      .populate("vehiculo usuario")
+      .sort({ fecha: -1 });
+    res.json(deudas);
+  }
+);
+
+// PUT /api/pagos/deuda/:id — editar monto
+router.put(
+  "/deuda/:id",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    const { id } = req.params;
+    const { monto } = req.body;
+    const deuda = await Deuda.findById(id);
+    if (!deuda) return res.status(404).json({ message: "Deuda no encontrada" });
+    if (deuda.pagada) return res.status(400).json({ message: "Ya pagada" });
+    if (deuda.eliminada) return res.status(400).json({ message: "Ya eliminada" });
+
+    deuda.monto = monto;
+    await deuda.save();
+
+    await registrarActividad({
+      usuarioId: req.userId,
+      tipo: "editar deuda",
+      descripcion: `Editó deuda (${deuda._id}) a $${monto}`,
+    });
+
+    res.json({ message: "Monto de deuda actualizado" });
+  }
+);
+
+// DELETE /api/pagos/deuda/:id — eliminar con motivo
+router.delete(
+  "/deuda/:id",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    const { id } = req.params;
+    const { motivo } = req.body;
+
+    if (!motivo || motivo.length < 3) {
+      return res.status(400).json({ message: "Debes indicar un motivo válido." });
+    }
+
+    const deuda = await Deuda.findById(id);
+    if (!deuda) return res.status(404).json({ message: "Deuda no encontrada" });
+
+    deuda.motivoEliminacion = motivo;
+    deuda.eliminada = true;
+    await deuda.save();
+
+    await registrarActividad({
+      usuarioId: req.userId,
+      tipo: "eliminacion deuda",
+      descripcion: `Eliminó deuda (${deuda._id}) por $${deuda.monto} el ${deuda.fecha.toLocaleDateString()} - Motivo: ${motivo}`,
+    });
+
+    res.json({ message: "Deuda marcada como eliminada", motivo });
   }
 );
 
@@ -227,6 +296,7 @@ router.get(
       pagada: false,
       estado: "pendiente" ,
       comprobante: { $exists: true, $ne: null },
+      eliminada: { $ne: true },
     }).populate("usuario vehiculo");
     res.json(deudas);
   }

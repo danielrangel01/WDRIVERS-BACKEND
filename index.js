@@ -70,8 +70,8 @@ app.use("/uploads", express.static(path.resolve("uploads")));
 app.use("/api", cronRoutes);
 
 async function crearAdminInicial() {
-  const username = "admin";
-  const password = "admin123"; // Cámbialo después de iniciar
+  const username = process.env.USERADMIN;
+  const password = process.env.PASSADMIN; // Cámbialo después de iniciar
 
   // ¿Ya existe?
   const existente = await User.findOne({ username });
