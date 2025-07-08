@@ -14,6 +14,12 @@ dotenv.config();
 
 const router = express.Router();
 
+// Definir tamaño máximo en bytes (por ejemplo, 2 MB)
+const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+
+// Sólo extensiones permitidas
+const allowedTypes = /jpeg|jpg|png|webp/i;
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "./uploads/comprobantes";
@@ -26,7 +32,21 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+// Filtro para tipos de archivo
+function fileFilter(req, file, cb) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowedTypes.test(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, webp)"));
+  }
+}
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: MAX_SIZE },
+});
 
 router.post("/", authMiddleware, requireRole("conductor"), async (req, res) => {
   const userId = req.user.id;
@@ -66,9 +86,7 @@ router.post(
       if (!monto) return res.status(400).json({ message: "Monto requerido" });
 
       const archivo = req.file;
-      const usuario = await User.findById(req.userId).populate(
-        "assignedVehicle"
-      );
+      const usuario = await User.findById(req.userId).populate("assignedVehicle");
 
       if (!archivo)
         return res.status(400).json({ message: "Comprobante requerido" });
@@ -90,6 +108,15 @@ router.post(
         .status(201)
         .json({ message: "Pago pendiente con comprobante registrado" });
     } catch (err) {
+      // 🚩 Robustecer manejo de error de multer:
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: "El archivo excede el tamaño máximo de 2 MB" });
+        }
+      }
+      if (err.message && err.message.includes("Solo se permiten imágenes")) {
+        return res.status(400).json({ message: err.message });
+      }
       console.error(err);
       res.status(500).json({ message: "Error al registrar el pago manual" });
     }
@@ -168,7 +195,7 @@ router.put(
     await registrarActividad({
       usuarioId: req.userId,
       tipo: "editar deuda",
-      descripcion: `Editó deuda (${deuda._id}) a $${monto}`,
+      descripcion: `Editó deuda ref: ${deuda._id} a $${monto}`,
     });
 
     res.json({ message: "Monto de deuda actualizado" });
@@ -198,7 +225,7 @@ router.delete(
     await registrarActividad({
       usuarioId: req.userId,
       tipo: "eliminacion deuda",
-      descripcion: `Eliminó deuda (${deuda._id}) por $${deuda.monto} el ${deuda.fecha.toLocaleDateString()} - Motivo: ${motivo}`,
+      descripcion: `Eliminó deuda ref: ${deuda._id} por $${deuda.monto} el ${deuda.fecha.toLocaleDateString()} - Motivo: ${motivo}`,
     });
 
     res.json({ message: "Deuda marcada como eliminada", motivo });
@@ -211,42 +238,55 @@ router.post(
   requireRole("conductor"),
   upload.single("comprobante"),
   async (req, res) => {
-    const deuda = await Deuda.findById(req.params.id).populate(
-      "vehiculo usuario"
-    );
-    if (!deuda || deuda.pagada)
-      return res.status(404).json({ message: "Deuda no válida o ya pagada" });
-    if (deuda.usuario._id.toString() !== req.userId.toString())
-      return res.status(403).json({ message: "No tienes permiso" });
+    try {
+      const deuda = await Deuda.findById(req.params.id).populate(
+        "vehiculo usuario"
+      );
+      if (!deuda || deuda.pagada)
+        return res.status(404).json({ message: "Deuda no válida o ya pagada" });
+      if (deuda.usuario._id.toString() !== req.userId.toString())
+        return res.status(403).json({ message: "No tienes permiso" });
 
-    const { metodo } = req.body;
+      const { metodo } = req.body;
 
-    if (metodo === "pse") {
-      // Lógica para PSE (Wompi)
-      const referencia = `DEUDA-${deuda._id}`;
-      deuda.metodo = "pse";
-      deuda.referencia = referencia;
+      if (metodo === "pse") {
+        // Lógica para PSE (Wompi)
+        const referencia = `DEUDA-${deuda._id}`;
+        deuda.metodo = "pse";
+        deuda.referencia = referencia;
+        await deuda.save();
+
+        const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${
+          process.env.PUBLIC_KEY_WOMPI
+        }&currency=COP&amount-in-cents=${
+          deuda.monto * 100
+        }&reference=${referencia}&redirect-url=http://localhost:3000/pago-exitoso`;
+        return res.json({ checkoutUrl });
+      }
+
+      // Si es manual
+      if (!req.file)
+        return res.status(400).json({ message: "Comprobante requerido" });
+      deuda.comprobante = req.file.path;
+      deuda.metodo = "manual";
+      deuda.estado = "pendiente";
       await deuda.save();
 
-      const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${
-        process.env.PUBLIC_KEY_WOMPI
-      }&currency=COP&amount-in-cents=${
-        deuda.monto * 100
-      }&reference=${referencia}&redirect-url=http://localhost:3000/pago-exitoso`;
-      return res.json({ checkoutUrl });
+      res.json({
+        message: "Pago manual registrado. Espera aprobación del admin.",
+      });
+    } catch (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: "El archivo excede el tamaño máximo de 2 MB" });
+        }
+      }
+      if (err.message && err.message.includes("Solo se permiten imágenes")) {
+        return res.status(400).json({ message: err.message });
+      }
+      console.error(err);
+      res.status(500).json({ message: "Error al procesar el pago de la deuda" });
     }
-
-    // Si es manual
-    if (!req.file)
-      return res.status(400).json({ message: "Comprobante requerido" });
-    deuda.comprobante = req.file.path;
-    deuda.metodo = "manual";
-    deuda.estado = "pendiente";
-    await deuda.save();
-
-    res.json({
-      message: "Pago manual registrado. Espera aprobación del admin.",
-    });
   }
 );
 
