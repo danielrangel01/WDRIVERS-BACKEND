@@ -145,6 +145,8 @@ router.get("/mis-pagos", authMiddleware, async (req, res) => {
   }
 });
 
+
+
 // GET /api/pagos/deudas (conductor)
 router.get(
   "/deudas",
@@ -160,6 +162,100 @@ router.get(
     res.json(deudas);
   }
 );
+
+router.post(
+  "/solicitudes/:id/rechazar",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    const { motivo } = req.body;
+    const solicitud = await SolicitudPago.findById(req.params.id);
+    if (!solicitud || solicitud.estado !== "pendiente")
+      return res.status(404).json({ message: "Solicitud no encontrada o no pendiente" });
+
+    solicitud.estado = "rechazado";
+    solicitud.motivoRechazo = motivo || "Sin motivo";
+    await solicitud.save();
+
+    await registrarActividad({
+      usuarioId: req.userId,
+      tipo: "rechazo pago manual",
+      descripcion: `Rechazó pago manual ${solicitud.referencia}. Motivo: ${motivo}`,
+    });
+
+    res.json({ message: "Pago rechazado" });
+  }
+);
+
+// POST /api/pagos/deudas/:id/rechazar
+router.post(
+  "/pagos/deudas/:id/rechazar",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    const { motivo } = req.body;
+    const deuda = await Deuda.findById(req.params.id);
+    if (
+      !deuda ||
+      deuda.pagada ||
+      deuda.estado !== "pendiente" ||
+      deuda.metodo !== "manual"
+    )
+      return res.status(404).json({ message: "Deuda no válida o ya procesada" });
+
+    deuda.estado = "rechazado";
+    deuda.motivoRechazo = motivo || "Sin motivo";
+    await deuda.save();
+
+    await registrarActividad({
+      usuarioId: req.userId,
+      tipo: "rechazo deuda",
+      descripcion: `Rechazó pago de deuda ref: ${deuda._id}. Motivo: ${motivo}`,
+    });
+
+    res.json({ message: "Pago de deuda rechazado" });
+  }
+);
+
+router.get("/mis-rechazados", authMiddleware, requireRole("conductor"), async (req, res) => {
+  // Pagos RECHAZADOS en SolicitudPago (pagos manuales rechazados)
+  const solicitudes = await SolicitudPago.find({
+    usuario: req.userId,
+    estado: "rechazado",
+  })
+    .populate("vehiculo")
+    .sort({ fecha: -1 });
+
+  // Deudas RECHAZADAS manuales (si guardas estado "rechazado" en deuda)
+  const deudas = await Deuda.find({
+    usuario: req.userId,
+    estado: "rechazado",
+  })
+    .populate("vehiculo")
+    .sort({ fecha: -1 });
+
+  // Unificamos
+  const rechazados = [
+    ...solicitudes.map((s) => ({
+      _id: s._id,
+      monto: s.monto,
+      vehiculo: s.vehiculo,
+      fecha: s.fecha || s.createdAt,
+      motivoRechazo: s.motivoRechazo,
+    })),
+    ...deudas.map((d) => ({
+      _id: d._id,
+      monto: d.monto,
+      vehiculo: d.vehiculo,
+      fecha: d.fecha,
+      motivoRechazo: d.motivoRechazo,
+    })),
+  ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+  res.json(rechazados);
+});
+
+
 
 // GET /api/pagos/deudas-admin (admin) — todas, NO eliminadas
 router.get(

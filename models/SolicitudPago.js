@@ -7,7 +7,8 @@ const solicitudPagoSchema = new mongoose.Schema({
   evidencia: { type: String },
   estado: { type: String, enum: ['pendiente', 'aprobado', 'rechazado'], default: 'pendiente' },
   referencia: String,
-  fecha: { type: Date, default: Date.now }
+  fecha: { type: Date, default: Date.now },
+  motivoRechazo: { type: String }
 });
 
 export default mongoose.model('SolicitudPago', solicitudPagoSchema);

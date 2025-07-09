@@ -16,7 +16,8 @@ const deudaSchema = new mongoose.Schema({
 
   pagoId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Pago' },// Relación al pago registrado (si aplica)
   motivoEliminacion: { type: String },
-  eliminada: { type: Boolean, default: false }
+  eliminada: { type: Boolean, default: false },
+  motivoRechazo: { type: String }
 },
 {
   timestamps: true
